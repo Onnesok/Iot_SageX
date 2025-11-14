@@ -97,12 +97,6 @@ Judging weightage: Technical Execution 50%, Innovation & Social Impact 30%, Pres
 - **Innovation & Uniqueness:** App-less game-matrix interface, multi-sensor authentication, and incentive loops are articulated under “Why App-less?” and “Primary Objectives”.
 - **System Integration & Feasibility:** “System Architecture” and “Key Features Implementation” detail data flow, hardware/software communication, and concurrency handling.
 
-### Competition Contacts
-- **Muhammad Junayed (Event Lead):** +880187620119
-- **Md. Shahriar Kibria Jawwad (Event Manager):** +8801756902939
-- **Tahmid Fuad Khan (Convenor):** +8801815681428
-- **Official Email:** eteteleverse@gmail.com
-
 ## System Architecture
 
 ### User-Side (App-less Interface)
