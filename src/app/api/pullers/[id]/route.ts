@@ -34,23 +34,46 @@ export async function GET(
       );
     }
 
-    const pointsHistory = await prisma.pointsHistory.findMany({
-      where: { pullerId: puller.id },
-      orderBy: { createdAt: 'desc' },
-      take: 10
-    });
+      const [pointsHistory, rides, pendingRides] = await Promise.all([
+        prisma.pointsHistory.findMany({
+          where: { pullerId: puller.id },
+          orderBy: { createdAt: 'desc' },
+          take: 10
+        }),
+        prisma.ride.findMany({
+          where: { pullerId: puller.id },
+          orderBy: { createdAt: 'desc' },
+          take: 10
+        }),
+        prisma.ride.findMany({
+          where: { status: 'pending' },
+          include: {
+            pickupLocation: true,
+            destinationLocation: true
+          },
+          orderBy: { createdAt: 'desc' }
+        })
+      ]);
 
-    const rides = await prisma.ride.findMany({
-      where: { pullerId: puller.id },
-      orderBy: { createdAt: 'desc' },
-      take: 10
-    });
+      const activeRide = await prisma.ride.findFirst({
+        where: {
+          pullerId: puller.id,
+          status: { in: ['accepted', 'pickup_confirmed', 'in_progress'] }
+        },
+        include: {
+          pickupLocation: true,
+          destinationLocation: true
+        },
+        orderBy: { createdAt: 'desc' }
+      });
 
-    return NextResponse.json({
-      puller,
-      pointsHistory,
-      recentRides: rides
-    });
+      return NextResponse.json({
+        puller,
+        pointsHistory,
+        recentRides: rides,
+        pendingRides,
+        activeRide
+      });
   } catch (error) {
     console.error('Error fetching puller:', error);
     return NextResponse.json(

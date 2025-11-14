@@ -47,7 +47,7 @@
 // ------------ Network + Backend configuration ------------
 const char *WIFI_SSID     = "One piece";
 const char *WIFI_PASSWORD = "anime@54321";
-const char *API_BASE_URL  = "http://192.168.1.123:3000/api"; // Update to your Next.js deployment
+const char *API_BASE_URL  = "http://192.168.0.102:3000/api"; // Update to your Next.js deployment
 
 // Users and locations must exist in the seeded backend database
 const char *REGISTERED_USER_ID   = "user_block_cuet";
@@ -162,6 +162,7 @@ bool buttonHoldTimeoutTriggered = false;
 String lastPickupName = "";
 String lastDestinationName = "";
 float lastStableDistanceCm = -1.0f;
+unsigned long confirmPresenceLostStartedAt = 0;
 
 bool laserPercentInitialized = false;
 float currentLaserPercent = 0.0f;
@@ -377,10 +378,16 @@ void updateStateMachine(float distanceCm, bool distanceStable, int activeBlock, 
       break;
     }
 
-    case STATE_WAITING_CONFIRM:
-      if (!distanceStable) {
-        resetSystem("Presence lost");
-        break;
+    case STATE_WAITING_CONFIRM: {
+      if (!isWithinPresenceRange(distanceCm)) {
+        if (confirmPresenceLostStartedAt == 0) {
+          confirmPresenceLostStartedAt = millis();
+        } else if (millis() - confirmPresenceLostStartedAt > 2000) {
+          resetSystem("Presence lost");
+          break;
+        }
+      } else {
+        confirmPresenceLostStartedAt = 0;
       }
       if (activeBlock >= 0 && activeBlock != latchedBlockIndex) {
         candidateBlockIndex = activeBlock;
@@ -416,6 +423,7 @@ void updateStateMachine(float distanceCm, bool distanceStable, int activeBlock, 
         sendRideRequest();
       }
       break;
+    }
 
     case STATE_DISPATCHING:
       // Busy while HTTP POST is running
@@ -444,14 +452,28 @@ void updateStateMachine(float distanceCm, bool distanceStable, int activeBlock, 
     }
 
     case STATE_RIDE_ACCEPTED:
-    case STATE_PICKUP_CONFIRMED:
-    case STATE_RIDE_COMPLETED:
-    case STATE_REJECTED_OR_ERROR: {
-      if (millis() - stateStartedAt > 8000) {
-        resetSystem("Cycle done");
-       }
+    case STATE_PICKUP_CONFIRMED: {
+      if (activeRideId.length() == 0) {
+        resetSystem("Ride ID missing");
+        break;
+      }
+      if (millis() - lastStatusPollAt >= STATUS_POLL_INTERVAL) {
+        pollRideStatus();
+      }
       break;
-     }
+    }
+
+    case STATE_RIDE_COMPLETED:
+      if (millis() - stateStartedAt > 8000) {
+        resetSystem("Ride cycle complete");
+      }
+      break;
+
+    case STATE_REJECTED_OR_ERROR:
+      if (millis() - stateStartedAt > 8000) {
+        resetSystem("Request ended");
+      }
+      break;
    }
 }
 
@@ -832,6 +854,7 @@ void setState(SystemState nextState) {
   if (nextState == STATE_WAITING_CONFIRM) {
     buttonHoldTimeoutTriggered = false;
     buttonPressStartAt = 0;
+    confirmPresenceLostStartedAt = 0;
   }
 }
 

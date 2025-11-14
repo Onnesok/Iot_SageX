@@ -80,63 +80,84 @@ export default function RickshawPage() {
     }
   }, []);
 
-  useEffect(() => {
-    // Load locations
-    fetch('/api/locations')
-      .then(res => res.json())
-      .then(data => setLocations(data.locations));
+useEffect(() => {
+  // Load locations once
+  fetch('/api/locations')
+    .then(res => res.json())
+    .then(data => setLocations(data.locations))
+    .catch(() => {});
 
-    // Get current GPS location
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setCurrentLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          });
-        },
-        (error) => {
-          console.error('Error getting location:', error);
-        }
-      );
+  const supportsGeolocation =
+    typeof window !== 'undefined' && 'geolocation' in navigator;
+  const hasSecureContext =
+    typeof window !== 'undefined' && window.isSecureContext;
 
-      // Watch position for continuous updates
-      const watchId = navigator.geolocation.watchPosition(
-        (position) => {
-          setCurrentLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          });
-        },
-        (error) => console.error('Error watching location:', error),
-        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
-      );
+  if (!supportsGeolocation) {
+    console.warn('Geolocation is not available in this browser.');
+    return;
+  }
 
-      return () => navigator.geolocation.clearWatch(watchId);
+  if (!hasSecureContext) {
+    console.warn('Geolocation requires HTTPS. Location tracking disabled.');
+    return;
+  }
+
+  let watchId: number | null = null;
+
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      setCurrentLocation({
+        lat: position.coords.latitude,
+        lng: position.coords.longitude
+      });
+    },
+    (error) => {
+      console.error('Error getting location:', error);
     }
+  );
 
-    // Poll for notifications if logged in
-    if (isLoggedIn && pullerId) {
-      // Fetch immediately on login/restore
-      fetchActiveRequests();
-      updateLocation();
-      fetchPullerStats();
-      
-      // Then poll every 3 seconds
-      const interval = setInterval(() => {
-        fetchActiveRequests();
-        updateLocation();
-        fetchPullerStats();
-      }, 3000);
-      return () => clearInterval(interval);
+  watchId = navigator.geolocation.watchPosition(
+    (position) => {
+      setCurrentLocation({
+        lat: position.coords.latitude,
+        lng: position.coords.longitude
+      });
+    },
+    (error) => {
+      console.error('Error watching location:', error);
+    },
+    { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+  );
+
+  return () => {
+    if (watchId !== null) {
+      navigator.geolocation.clearWatch(watchId);
     }
-  }, [isLoggedIn, pullerId]);
+  };
+}, []);
+
+useEffect(() => {
+  if (!isLoggedIn || !pullerId) {
+    return;
+  }
+
+  const run = () => {
+    fetchActiveRequests();
+    updateLocation();
+    fetchPullerStats();
+  };
+
+  run();
+
+  const interval = setInterval(run, 3000);
+  return () => clearInterval(interval);
+}, [isLoggedIn, pullerId]);
 
   const fetchActiveRequests = async () => {
     try {
-      const res = await fetch('/api/rides?type=active');
-      const data = await res.json();
-      const newRides = data.rides || [];
+    const res = await fetch('/api/rides?type=active');
+    const data = await res.json();
+    const newRides = data.rides || [];
       
       // Check for new ride notifications
       if (newRides.length > notifications.length) {
@@ -160,34 +181,37 @@ export default function RickshawPage() {
     }
   };
 
-  const fetchPullerStats = async (id?: string) => {
-    const targetId = id || pullerId;
-    if (!targetId) return;
-    try {
-      const res = await fetch(`/api/pullers/${targetId}`);
-      const data = await res.json();
-      if (data.puller) {
-        setPuller(data.puller);
-        setPointsHistory(data.pointsHistory || []);
-        
-        // Calculate today's stats
-        const today = new Date().toDateString();
-        const todayHistory = (data.pointsHistory || []).filter((entry: any) => 
-          new Date(entry.createdAt).toDateString() === today && entry.type === 'earned'
-        );
-        const todayPoints = todayHistory.reduce((sum: number, entry: any) => sum + entry.points, 0);
-        const todayRides = todayHistory.length;
-        
-        setStats({
-          todayRides,
-          todayPoints,
-          avgRating: data.puller.totalRides > 0 ? (data.puller.points / data.puller.totalRides) : 0
-        });
-      }
-    } catch (error) {
-      console.error('Error fetching stats:', error);
+const fetchPullerStats = async (id?: string) => {
+  const targetId = id || pullerId;
+  if (!targetId) return;
+  try {
+    const res = await fetch(`/api/pullers/${targetId}`);
+    const data = await res.json();
+    if (data.puller) {
+      setPuller(data.puller);
+      setPointsHistory(data.pointsHistory || []);
+      
+      // Calculate today's stats
+      const today = new Date().toDateString();
+      const todayHistory = (data.pointsHistory || []).filter((entry: any) => 
+        new Date(entry.createdAt).toDateString() === today && entry.type === 'earned'
+      );
+      const todayPoints = todayHistory.reduce((sum: number, entry: any) => sum + entry.points, 0);
+      const todayRides = todayHistory.length;
+      
+      setStats({
+        todayRides,
+        todayPoints,
+        avgRating: data.puller.totalRides > 0 ? (data.puller.points / data.puller.totalRides) : 0
+      });
+
+      setActiveRide(data.activeRide || null);
+      setNotifications(data.pendingRides || []);
     }
-  };
+  } catch (error) {
+    console.error('Error fetching stats:', error);
+  }
+};
 
   const updateLocation = async () => {
     if (!currentLocation || !pullerId) return;

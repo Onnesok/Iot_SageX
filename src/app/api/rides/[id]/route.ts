@@ -1,6 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+const isValidObjectId = (value: string) => /^[0-9a-fA-F]{24}$/.test(value);
+
+async function resolvePuller(identifier: string | undefined | null) {
+  if (!identifier) return null;
+
+  if (isValidObjectId(identifier)) {
+    const byId = await prisma.puller.findUnique({ where: { id: identifier } });
+    if (byId) return byId;
+  }
+
+  const candidates = [
+    identifier,
+    identifier.startsWith('+') ? identifier : `+${identifier}`
+  ];
+
+  return prisma.puller.findFirst({
+    where: {
+      OR: [
+        { phone: { in: candidates } },
+        { name: identifier }
+      ]
+    }
+  });
+}
+
 // Calculate distance between two coordinates (Haversine formula)
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371e3; // Earth radius in meters
@@ -91,9 +116,16 @@ export async function PATCH(
             { status: 400 }
           );
         }
+        const acceptingPuller = await resolvePuller(pullerId);
+        if (!acceptingPuller) {
+          return NextResponse.json(
+            { error: 'Puller not found' },
+            { status: 404 }
+          );
+        }
         updateData = {
           status: 'accepted',
-          pullerId,
+          pullerId: acceptingPuller.id,
           acceptedAt: new Date()
         };
         break;
@@ -105,7 +137,14 @@ export async function PATCH(
         break;
 
       case 'confirm_pickup':
-        if (!pullerId || pullerId !== ride.pullerId) {
+        if (!pullerId || !ride.pullerId) {
+          return NextResponse.json(
+            { error: 'Unauthorized' },
+            { status: 403 }
+          );
+        }
+        const pickupPuller = await resolvePuller(pullerId);
+        if (!pickupPuller || pickupPuller.id !== ride.pullerId) {
           return NextResponse.json(
             { error: 'Unauthorized' },
             { status: 403 }
@@ -118,7 +157,14 @@ export async function PATCH(
         break;
 
       case 'complete':
-        if (!pullerId || pullerId !== ride.pullerId) {
+        if (!pullerId || !ride.pullerId) {
+          return NextResponse.json(
+            { error: 'Unauthorized' },
+            { status: 403 }
+          );
+        }
+        const completingPuller = await resolvePuller(pullerId);
+        if (!completingPuller || completingPuller.id !== ride.pullerId) {
           return NextResponse.json(
             { error: 'Unauthorized' },
             { status: 403 }
@@ -154,7 +200,7 @@ export async function PATCH(
           
           // Award points to puller
           await prisma.puller.update({
-            where: { id: pullerId },
+            where: { id: completingPuller.id },
             data: {
               points: { increment: pointsAwarded },
               totalRides: { increment: 1 }
@@ -163,7 +209,7 @@ export async function PATCH(
           
           await prisma.pointsHistory.create({
             data: {
-              pullerId,
+              pullerId: completingPuller.id,
               rideId: id,
               points: pointsAwarded,
               type: 'earned',
@@ -175,7 +221,7 @@ export async function PATCH(
           pointsStatus = 'rewarded';
           
           await prisma.puller.update({
-            where: { id: pullerId },
+            where: { id: completingPuller.id },
             data: {
               points: { increment: pointsAwarded },
               totalRides: { increment: 1 }
@@ -184,7 +230,7 @@ export async function PATCH(
           
           await prisma.pointsHistory.create({
             data: {
-              pullerId,
+              pullerId: completingPuller.id,
               rideId: id,
               points: pointsAwarded,
               type: 'earned',
