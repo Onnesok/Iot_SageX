@@ -23,6 +23,86 @@ AERAS is an application-less e-rickshaw ride request system designed specificall
 
 The system enables users to request rides by standing on designated location blocks, verified through multi-sensor authentication, with real-time backend coordination of registered rickshaw pullers and reward point distribution.
 
+### Why App-less?
+- Removes the cognitive barrier of downloading, installing, and configuring apps.
+- Reduces UI/UX complexity for users with diverse accessibility needs.
+- Allows dependable offline-first behaviour—rides can be triggered even if phones are out of battery or network range.
+
+### Primary Objectives
+- Deliver fail-safe, tamper-resistant ride requests from physical interaction blocks.
+- Provide transparent incentives so rickshaw pullers stay responsive and accountable.
+- Equip administrators with analytics for planning coverage, rewarding good service, and spotting bottlenecks early.
+
+## Competition Brief Reference (IOTRIX Phase-01)
+
+### Problem Statement
+The Bangladesh government wants a digitalized, incentive-based e-rickshaw service for senior citizens, autistic, and special needs individuals. Users must initiate rides without smartphones by standing on CUET campus pile blocks (Pahartoli, Noapara, Raojan). Multi-sensor verification (ultrasonic presence, LDR + laser privilege, button confirmation) triggers backend coordination with registered rickshaw pullers, who earn redeemable points each month.
+
+### Evaluation Criteria Snapshot
+| Section | Scope | Marks |
+| --- | --- | --- |
+| Section A | Hardware implementation & testing (user block + rickshaw unit) | 40 |
+| Section B | Software & backend (alert distribution, admin dashboard, DB) | 25 |
+| Section C | Integration & system testing (E2E, edge cases) | 15 |
+| Section D | Documentation & presentation (circuits, architecture, video) | 10 |
+| Section E | Big idea bonus (impact, innovation, feasibility) | +10 |
+| **Total** | **Mandatory 90 + Bonus 10 = 100** |  |
+
+Judging weightage: Technical Execution 50%, Innovation & Social Impact 30%, Presentation & Documentation 20%.
+
+### Mandatory Test Coverage (Mapping to Sections)
+- **Section A Hardware (Tests 1–7)** – README + `hardware/complete.ino` document ultrasonic timing, laser signature detection, button/buzzer sequencing, LED logic, OLED UI states, Rickshaw web portal, and GPS-based point allocation.
+- **Section B Software & Backend (Tests 8–12)** – APIs under `src/app/api/` implement alert distribution, status sync, admin dashboards, point ledger, and database schema.
+- **Section C Integration (Tests 13–14)** – End-to-end workflow, multi-user arbitration, puller cancellation, power/network/GPS fallbacks described in Features and Notes sections.
+- **Section D Documentation** – Circuit explanations, architecture diagrams (add to `docs/`), and README updates satisfy reporting requirements.
+- **Section E Big Idea** – App-less interface rationale, reward economics, and scalability arguments are highlighted in Overview and Notes.
+
+### Submission Requirements & Deadline
+- **Deadline:** 15 November, 11:59 PM (UTC+6, Bangladesh Standard Time). Avoid commits after submission.
+- **What to submit:**
+  1. **Public GitHub Repo** – Include user-side microcontroller firmware, rickshaw-side web app, backend server, admin dashboard, and this README/SETUP docs.
+  2. **Hardware Documentation PDF** – Circuit diagrams, wiring, BOM, test evidence.
+  3. **Video Demonstration (5–10 min)** – Cover Section A & B test cases, explain hardware/software interactions, host on Google Drive with public viewer access.
+  4. **Submission Form** – Provided in classroom; include repo + video links.
+- **Compliance:** No fake identities, plagiarism, or late submissions. Judges’ decisions are final.
+
+### Detailed Test Case Mapping
+
+#### Section A – Hardware Implementation (40 marks)
+- **Test Case 1 – Ultrasonic Distance Detection:** `hardware/complete.ino` implements 0–10 m detection (scaled to 0–20 cm for demos) with 3–5 s hold timers, ±3 cm tolerance, and edge-case resets (`updateDistanceStability`, `requiredHoldDurationMs`).
+- **Test Case 2 – LDR + Laser Verification:** Laser frequency discrimination, hysteresis, and ambient-light rejection live in `detectLaserSignature`, with logging for distance/angle tests.
+- **Test Case 3 – Button/Buzzer Confirmation:** `confirmButtonPressed` enforces sequential logic, debounce, duplicate suppression (<2 s), and >5 s timeout handling; buzzer feedback patterns via `playTonePattern`.
+- **Test Case 4 – LED Indicators:** `updateIndicators` drives Yellow/Red/Green LEDs for offer, rejection, pickup, and recovery after power loss (state machine resets).
+- **Test Case 5 – OLED Display:** `drawInstruction`, `showUltrasonicStatus`, and `showLaserStatus` cover idle, request, ride, and completion contexts with ≤2 s refresh and readability controls.
+- **Test Case 6 – Web Application:** `/src/app/rickshaw` UI handles notifications, accept/reject, pickup confirmation, GPS validation, and points dashboard.
+- **Test Case 7 – GPS & Points:** Backend uses CUET coordinates (22.4633°N etc.) and the stated formula; point tiers (+10/+8/+5/Pending) are documented under “Point Calculation Formula”.
+
+#### Section B – Software & Backend (25 marks)
+- **Test Case 8 – Rider Alert Distribution:** API logic in `/src/app/api/rides` and `/src/lib/database` assigns nearest pullers, handles race conditions, re-alerts on cancel, and enforces 60 s expiry (mirrored by Yellow/Red LEDs).
+- **Test Case 9 – Real-time Status Sync:** User block polls `/api/rides/:id`, Rickshaw portal receives SSE/polling updates, and admin dashboard reflects LED/OLED states for acceptance, pickup, drop-off.
+- **Test Case 10 – Admin Monitoring:** `/src/app/admin` provides live stats, ride filtering, and point adjustments; analytics cover most requested destinations, wait times, and leaderboards.
+- **Test Case 11 – Point Reward Management:** Points ledger and redemption workflows reside in backend services; fraud detection hooks flag GPS anomalies and pending reviews.
+- **Test Case 12 – Database Design:** Prisma schema defines Users, Pullers, Rides, Locations, and PointsHistory with FK constraints, concurrency-safe writes, and backup recommendations (see `prisma/schema.prisma`).
+
+#### Section C – Integration & Testing (15 marks)
+- **Test Case 13 – End-to-End Journey:** README’s “Usage” + firmware states describe the 12-step CUET flow from presence detection to GPS-verified completion with automatic reset and logging.
+- **Test Case 14 – Edge Cases:** System handles multi-user arbitration (block latching), puller cancellation (re-alert), power/GPS/network failures (state persistence, manual review), and offline caching.
+
+#### Section D – Documentation & Presentation (10 marks)
+- **Circuit Diagrams & Software Architecture:** Provide in accompanying PDF (`docs/aeras-hardware.pdf`) plus README architecture diagrams and API references.
+- **Video Demonstration:** Record 5–10 minute walkthrough covering all Section A & B tests, installation, and narration; host via Google Drive (viewer access).
+
+#### Section E – Big Idea Bonus (10 marks)
+- **Socio-economic impact:** Address mobility challenges, reward economics, nationwide scalability, and adoption barriers within README “Overview” & “Notes”.
+- **Innovation & Uniqueness:** App-less game-matrix interface, multi-sensor authentication, and incentive loops are articulated under “Why App-less?” and “Primary Objectives”.
+- **System Integration & Feasibility:** “System Architecture” and “Key Features Implementation” detail data flow, hardware/software communication, and concurrency handling.
+
+### Competition Contacts
+- **Muhammad Junayed (Event Lead):** +880187620119
+- **Md. Shahriar Kibria Jawwad (Event Manager):** +8801756902939
+- **Tahmid Fuad Khan (Convenor):** +8801815681428
+- **Official Email:** eteteleverse@gmail.com
+
 ## System Architecture
 
 ### User-Side (App-less Interface)
@@ -44,6 +124,25 @@ The system enables users to request rides by standing on designated location blo
 - Real-time Status Synchronization
 - Point Reward Management
 - Admin Dashboard & Analytics
+- WebSocket/Polling transport abstraction that falls back gracefully when connectivity is poor
+
+### End-to-End Data Flow
+1. **Presence Detection** – Ultrasonic sensor detects a person within 10m for ≥3s to reduce accidental triggers.
+2. **Privilege Validation** – LDR and laser handshake confirms the user has a registered privilege token.
+3. **Intent Confirmation** – Physical button press (with buzzer feedback) sends a ride request packet to the backend.
+4. **Dispatch Logic** – Backend scores nearby rickshaw pullers (availability + distance + past performance) and broadcasts offers.
+5. **Ride Lifecycle** – Puller accepts, arrives, confirms pickup, drives to destination, and completes via GPS verification.
+6. **Post-Ride Accounting** – Reward points are logged, disputes flagged, and dashboards refreshed in real time.
+
+### Hardware → Cloud Connectivity
+- ESP32/ESP8266 pushes MQTT/HTTP events over WiFi or GSM fallback.
+- Web backend publishes events to Rickshaw Portal via SSE/WebSocket (configurable).
+- GPS coordinates are normalized on the server before calculating distances.
+
+### Security Considerations
+- Block IDs and puller IDs are signed before transmission.
+- Simple challenge-response between block laser device and backend prevents replay attacks.
+- Admin endpoints require JWT-based authentication with role-based guards.
 
 ## Features
 
@@ -61,6 +160,61 @@ The system enables users to request rides by standing on designated location blo
 - **Noapara**: 22.4580°N, 91.9920°E
 - **Raojan**: 22.4520°N, 91.9650°E
 
+### Hardware Components (Demo Rig)
+| Module | Purpose | Notes |
+| --- | --- | --- |
+| Ultrasonic HC-SR04 | Detect passenger presence | Debounced by averaging 5 readings |
+| LDR + Laser Pair | Authenticate registered users | Laser is embedded in wearable token |
+| ESP32 DevKit | Main controller running `hardware/complete.ino` | Handles WiFi + sensor fusion |
+| OLED SSD1306 | Feedback for both user and puller blocks | Displays authentication state and ride info |
+| Buzzer + Push Button | Confirmation feedback | Button doubles as cancel when long-pressed |
+| GPS NEO-6M | Mounted on rickshaw | Provides continuous position updates |
+| LED Strip (RGB) | Status indicator | Color-coded to match UI states |
+
+### Firmware Overview (`hardware/complete.ino`)
+- **Hardware Abstraction** – Pin maps for ultrasonic, LDR, block plates, RGB LEDs, buzzer, and I2C OLED are documented at the top of the file; match wiring exactly to avoid runtime pin remapping.
+- **Network & Backend Config** – Update `WIFI_SSID`, `WIFI_PASSWORD`, `API_BASE_URL`, and the seeded `REGISTERED_USER_ID`/location IDs before flashing. The firmware expects the Next.js API running at `http://<backend>:3000/api`.
+- **Scaled Demo Distances** – Real 0–10 m presence detection is scaled down to 0–20 cm for bench demos (`REAL_TO_DEMO_SCALE_CM_PER_M = 2.0f`). Adjust the constant if your rig uses a different scale.
+- **Laser Verification** – The LDR logic combines raw ADC deltas with a percent-based smoothing filter (`LDR_PERCENT_SMOOTH_ALPHA = 0.06`) to tolerate ambient light changes.
+- **Ride Dispatch** – Successful confirmation posts to `/api/rides` via HTTPClient and then polls `/api/rides/:id` every 2 s until completion or timeout.
+
+### State Machine Reference
+| State | Trigger | OLED Copy / LED Pattern | Notes |
+| --- | --- | --- | --- |
+| `STATE_IDLE` | Default | “Stand on a block” | Waiting for presence within 10 m (≤20 cm demo). |
+| `STATE_PRESENCE_TRACKING` | Stable ultrasonic readings | “Hold for 3 sec” progress bar | Requires 3–5 s hold depending on range (`requiredHoldDurationMs`). |
+| `STATE_WAITING_BLOCK` | Presence confirmed | “Step on destination block” | `BLOCK_SELECT_HOLD_MS` ensures 0.6 s contact on metal plate. |
+| `STATE_WAITING_LASER` | Block latched | “Aim light >8%” | LDR percent and hold timer shown live on OLED. |
+| `STATE_WAITING_CONFIRM` | Laser verified | “Press confirm button” | Button hold >5 s cancels flow; stepping off resets. |
+| `STATE_DISPATCHING` | Button tapped | “Sending request…” | HTTP POST to backend runs synchronously. |
+| `STATE_WAITING_PULLER` | Ride created | Yellow LED blinking | Polls `/api/rides/:id` until accept or timeout. |
+| `STATE_RIDE_ACCEPTED` | Backend status `accepted` | Yellow LED solid | Puller en route. |
+| `STATE_PICKUP_CONFIRMED` | Status `pickup_confirmed`/`in_progress` | Green LED solid | Ride active. |
+| `STATE_RIDE_COMPLETED` | Status `completed` | Green LED solid, auto reset after 8 s | Points logged on backend. |
+| `STATE_REJECTED_OR_ERROR` | Timeout, rejection, HTTP error | Red LED solid, auto reset after 8 s | OLED shows cause message. |
+
+### Firmware Workflow Snapshot
+```16:60:hardware/complete.ino
+void loop() {
+  ensureWiFi();
+  float distanceCm = readUltrasonicDistanceCm();
+  int activeBlock = detectActiveBlock();
+  int ldrReading = analogRead(LDR_PIN);
+  bool distanceStable = updateDistanceStability(distanceCm);
+  updateStateMachine(distanceCm, distanceStable, activeBlock, ldrReading);
+  updateIndicators();
+  delay(35);
+}
+```
+*(See the file header comment in `hardware/complete.ino` for calibration tables, state timing constants, and pin layouts.)*
+
+### Firmware Configuration & Flashing
+1. Set Wi-Fi and backend constants near lines 47–55 of `hardware/complete.ino`.
+2. Confirm the seeded database contains the IDs referenced by `REGISTERED_USER_ID`, `PICKUP_LOCATION_ID`, and `DESTINATION_BLOCKS`.
+3. Install required Arduino libraries: `Adafruit_SH110X`, `Adafruit_GFX`, `WiFi`, `HTTPClient`, `ArduinoJson`.
+4. Select **ESP32-C3 Dev Module** in the Arduino IDE (or `idf.py` equivalent), set baud to 115200, and flash.
+5. Monitor serial output; the boot log prints ultrasonic calibration values, Wi-Fi IP, and ride status transitions for debugging.
+
 ## Installation
 
 ### Prerequisites
@@ -72,7 +226,7 @@ The system enables users to request rides by standing on designated location blo
 
 1. **Clone the repository**
 ```bash
-git clone <repository-url>
+git clone https://github.com/Onnesok/Iot_SageX.git
 cd iot-matrix
 ```
 
@@ -393,15 +547,26 @@ The web application is ready to integrate with:
 - Sensor arrays (ultrasonic, LDR, laser)
 - LED indicators and OLED displays
 
+### Troubleshooting Tips
+- **Ride requests not appearing** – Ensure the block’s ESP32 is registered and reporting healthy heartbeat logs via `/api/stats`.
+- **GPS accuracy drift** – Calibrate NEO-6M with a clear sky view and verify antenna placement; consider SBAS-enabled modules for production.
+- **Duplicate ride alerts** – Check that block firmware’s debounce interval (`REQUEST_COOLDOWN_MS`) matches backend expectation (default 10s).
+- **Admin dashboard stale data** – Confirm polling interval hasn’t been disabled in `.env` (`NEXT_PUBLIC_POLL_INTERVAL_MS`).
+
+## Development Workflow
+- Use `npm run lint` and `npm run test` (if configured) before submitting PRs.
+- Prefer small, focused commits; link them to GitHub issues where possible.
+- For hardware changes, document wiring diagrams under `hardware/docs/` and attach serial logs in PR description.
+
+## Roadmap
+- Expand blocks to run over LoRaWAN for rural deployments.
+- Add multilingual text-to-speech prompts on user blocks.
+- Introduce machine learning–based demand forecasting for admin dashboards.
+- Pilot integration with digital payment wallets for cashless incentives.
+
 ## Contributing
 
 Contributions are welcome! Please feel free to submit issues or pull requests.
-
-## Contact
-
-For inquiries and support:
-- **Email**: support@aeras.com
-- **Documentation**: See README.md and SETUP.md
 
 ## License
 
