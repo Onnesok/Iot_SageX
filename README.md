@@ -138,6 +138,10 @@ Judging weightage: Technical Execution 50%, Innovation & Social Impact 30%, Pres
 - Simple challenge-response between block laser device and backend prevents replay attacks.
 - Admin endpoints require JWT-based authentication with role-based guards.
 
+### Architecture Diagrams
+![System Architecture Diagram](./public/architecture.png)
+![Detailed Data Flow Diagram](./public/architecture%202.png)
+
 ## Features
 
 ### Core Functionality
