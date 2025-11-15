@@ -97,6 +97,129 @@ Judging weightage: Technical Execution 50%, Innovation & Social Impact 30%, Pres
 - **Innovation & Uniqueness:** App-less game-matrix interface, multi-sensor authentication, and incentive loops are articulated under “Why App-less?” and “Primary Objectives”.
 - **System Integration & Feasibility:** “System Architecture” and “Key Features Implementation” detail data flow, hardware/software communication, and concurrency handling.
 
+### Database Schema Overview
+| Collection | Key Fields | Relationships / Notes |
+| --- | --- | --- |
+| `admins` | `username`, `password`, `name`, `email`, timestamps | Credentials for dashboard access. |
+| `locations` | `name`, `latitude`, `longitude`, `blockId` | Referenced twice by `rides` (pickup & destination). |
+| `users` | `name`, `age`, `userType`, `privilegeVerified` | One-to-many with `rides`. |
+| `pullers` | `name`, `phone`, `currentLatitude`, `currentLongitude`, `isOnline`, `points`, `totalRides` | Linked to `rides` (assigned puller) and `points_history`. |
+| `rides` | `userId`, `pullerId`, `pickupLocationId`, `destinationLocationId`, `status`, `pointsStatus`, GPS logs, timestamps | Core workflow entity; stores distance penalties and award status. |
+| `points_history` | `pullerId`, `rideId`, `points`, `type`, `description` | Ledger for earned/redeemed/expired/adjusted points. |
+
+```1:112:prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model Admin {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  username  String   @unique
+  password  String
+  name      String
+  email     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("admins")
+}
+
+model Location {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  latitude  Float
+  longitude Float
+  blockId   String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  pickupRides        Ride[] @relation("PickupLocation")
+  destinationRides   Ride[] @relation("DestinationLocation")
+
+  @@map("locations")
+}
+
+model User {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  name              String
+  age               Int
+  userType          String   // 'senior' | 'special_needs'
+  privilegeVerified Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  rides             Ride[]
+
+  @@map("users")
+}
+
+model Puller {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  name            String
+  phone           String
+  currentLatitude Float?
+  currentLongitude Float?
+  isOnline        Boolean  @default(false)
+  points          Float    @default(0)
+  totalRides      Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  rides           Ride[]
+  pointsHistory   PointsHistory[]
+
+  @@map("pullers")
+}
+
+model Ride {
+  id                  String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId              String   @db.ObjectId
+  pullerId            String?  @db.ObjectId
+  pickupLocationId    String   @db.ObjectId
+  destinationLocationId String @db.ObjectId
+  status              String   @default("pending") // 'pending' | 'accepted' | 'pickup_confirmed' | 'in_progress' | 'completed' | 'cancelled' | 'rejected'
+  pointsAwarded       Float?
+  pointsStatus        String   @default("pending") // 'pending' | 'rewarded' | 'under_review'
+  pickupLatitude      Float?
+  pickupLongitude     Float?
+  dropoffLatitude     Float?
+  dropoffLongitude    Float?
+  distanceFromBlock   Float?
+  createdAt           DateTime @default(now())
+  acceptedAt          DateTime?
+  pickupConfirmedAt   DateTime?
+  completedAt         DateTime?
+  updatedAt           DateTime @updatedAt
+  
+  user                User     @relation(fields: [userId], references: [id])
+  puller              Puller?  @relation(fields: [pullerId], references: [id])
+  pickupLocation      Location @relation("PickupLocation", fields: [pickupLocationId], references: [id])
+  destinationLocation Location @relation("DestinationLocation", fields: [destinationLocationId], references: [id])
+
+  @@map("rides")
+}
+
+model PointsHistory {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  pullerId    String   @db.ObjectId
+  rideId      String?  @db.ObjectId
+  points      Float
+  type        String   // 'earned' | 'redeemed' | 'expired' | 'adjusted'
+  description String
+  createdAt   DateTime @default(now())
+  
+  puller      Puller   @relation(fields: [pullerId], references: [id])
+
+  @@map("points_history")
+}
+```
+*(Full Prisma schema with field types, defaults, ObjectId mappings, and relations.)*
+
 ## System Architecture
 
 ### User-Side (App-less Interface)
