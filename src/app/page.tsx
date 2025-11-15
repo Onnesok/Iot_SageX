@@ -403,7 +403,7 @@ export default function Home() {
           </div>
 
           <div className="pt-6 sm:pt-8 border-t border-white/10 text-center text-xs sm:text-sm text-gray-500">
-            <p>© 2024 AERAS. All rights reserved.</p>
+            <p>© 2025 AERAS. All rights reserved.</p>
             <p className="mt-2">Accessible E-Rickshaw Automation System</p>
           </div>
         </div>
