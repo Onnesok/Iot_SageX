@@ -38,6 +38,13 @@ export async function GET(request: NextRequest) {
     const onlinePullers = allPullers.filter(p => p.isOnline);
     const activeRequests = allRides.filter(r => r.status === 'pending');
 
+    // Active users on blocks (users with non-completed/non-cancelled rides)
+    const activeUserIds = new Set(
+      allRides
+        .filter(r => r.status !== 'completed' && r.status !== 'cancelled' && r.status !== 'rejected')
+        .map(r => r.userId)
+    );
+
     // Calculate statistics
     const totalRides = allRides.length;
     const completedRides = allRides.filter(r => r.status === 'completed').length;
@@ -102,6 +109,7 @@ export async function GET(request: NextRequest) {
       overview: {
         totalUsers: allUsers.length,
         totalPullers: allPullers.length,
+        activeUsersOnBlocks: activeUserIds.size,
         onlinePullers: onlinePullers.length,
         activeRides,
         pendingRequests: activeRequests.length,

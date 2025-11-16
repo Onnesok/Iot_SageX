@@ -9,6 +9,7 @@ interface Stats {
   overview: {
     totalUsers: number;
     totalPullers: number;
+    activeUsersOnBlocks: number;
     onlinePullers: number;
     activeRides: number;
     pendingRequests: number;
@@ -60,6 +61,11 @@ export default function AdminPage() {
   const [locations, setLocations] = useState<Location[]>([]);
   const [selectedTab, setSelectedTab] = useState<'overview' | 'rides' | 'analytics'>('overview');
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterStartDate, setFilterStartDate] = useState<string>('');
+  const [filterEndDate, setFilterEndDate] = useState<string>('');
+  const [filterLocationId, setFilterLocationId] = useState<string>('all');
+  const [filterUserId, setFilterUserId] = useState<string>('');
+  const [filterPullerId, setFilterPullerId] = useState<string>('');
 
   useEffect(() => {
     // Check if already logged in
@@ -205,9 +211,31 @@ export default function AdminPage() {
     }
   };
 
-  const filteredRides = filterStatus === 'all' 
-    ? rides 
-    : rides.filter(r => r.status === filterStatus);
+  const filteredRides = rides.filter((r) => {
+    if (filterStatus !== 'all' && r.status !== filterStatus) return false;
+
+    if (filterUserId && !r.userId.toLowerCase().includes(filterUserId.toLowerCase())) return false;
+    if (filterPullerId && (!r.pullerId || !r.pullerId.toLowerCase().includes(filterPullerId.toLowerCase()))) return false;
+
+    if (filterLocationId !== 'all') {
+      if (r.pickupLocationId !== filterLocationId && r.destinationLocationId !== filterLocationId) return false;
+    }
+
+    if (filterStartDate) {
+      const rideDate = new Date(r.createdAt);
+      const start = new Date(filterStartDate);
+      if (rideDate < start) return false;
+    }
+
+    if (filterEndDate) {
+      const rideDate = new Date(r.createdAt);
+      const end = new Date(filterEndDate);
+      end.setHours(23, 59, 59, 999);
+      if (rideDate > end) return false;
+    }
+
+    return true;
+  });
 
   // Login Screen
   if (!isLoggedIn) {
@@ -348,8 +376,17 @@ export default function AdminPage() {
                 animate={{ opacity: 1, y: 0 }}
                 className="bg-gray-900 border border-gray-800 rounded-xl p-6"
               >
-                <div className="text-xs sm:text-sm text-gray-400 mb-2">Total Users</div>
+                <div className="text-xs sm:text-sm text-gray-400 mb-2">Total Users (Registered)</div>
                 <div className="text-2xl sm:text-3xl font-bold">{stats.overview.totalUsers}</div>
+              </motion.div>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="bg-gray-900 border border-gray-800 rounded-xl p-6"
+              >
+                <div className="text-sm text-gray-400 mb-2">Active Users on Blocks</div>
+                <div className="text-3xl font-bold text-green-400">{stats.overview.activeUsersOnBlocks}</div>
               </motion.div>
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -399,17 +436,34 @@ export default function AdminPage() {
               </div>
             </div>
 
-            {/* Most Requested Destinations */}
+            {/* Most Requested Destinations (Graph-style) */}
             <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
               <h2 className="text-xl font-bold mb-4">Most Requested Destinations</h2>
-              <div className="space-y-2">
-                {stats.analytics.mostRequestedDestinations.map((dest, index) => (
-                  <div key={index} className="flex items-center justify-between bg-gray-800 rounded-lg p-3">
-                    <span className="font-semibold">{dest.locationName}</span>
-                    <span className="text-green-400 font-bold">{dest.count} rides</span>
-                  </div>
-                ))}
-              </div>
+              {stats.analytics.mostRequestedDestinations.length === 0 ? (
+                <p className="text-sm text-gray-400">No ride data yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {(() => {
+                    const maxCount = Math.max(
+                      ...stats.analytics.mostRequestedDestinations.map((d) => d.count)
+                    );
+                    return stats.analytics.mostRequestedDestinations.map((dest, index) => (
+                      <div key={index}>
+                        <div className="flex justify-between text-xs sm:text-sm mb-1">
+                          <span className="font-semibold">{dest.locationName}</span>
+                          <span className="text-green-400 font-medium">{dest.count} rides</span>
+                        </div>
+                        <div className="w-full h-2 rounded-full bg-gray-800 overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-green-400 to-teal-400"
+                            style={{ width: `${(dest.count / maxCount) * 100}%` }}
+                          />
+                        </div>
+                      </div>
+                    ));
+                  })()}
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -418,7 +472,7 @@ export default function AdminPage() {
         {selectedTab === 'rides' && (
           <div className="space-y-6">
             {/* Filters */}
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 sm:p-4">
+            <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 sm:p-4 space-y-4">
               <div className="flex gap-2 flex-wrap">
                 {['all', 'pending', 'accepted', 'completed', 'cancelled'].map((status) => (
                   <button
@@ -433,6 +487,63 @@ export default function AdminPage() {
                     {status.charAt(0).toUpperCase() + status.slice(1)}
                   </button>
                 ))}
+              </div>
+              <div className="grid md:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-gray-400">From Date</label>
+                  <input
+                    type="date"
+                    value={filterStartDate}
+                    onChange={(e) => setFilterStartDate(e.target.value)}
+                    className="w-full bg-black/40 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-400"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-gray-400">To Date</label>
+                  <input
+                    type="date"
+                    value={filterEndDate}
+                    onChange={(e) => setFilterEndDate(e.target.value)}
+                    className="w-full bg-black/40 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-400"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-gray-400">Location</label>
+                  <select
+                    value={filterLocationId}
+                    onChange={(e) => setFilterLocationId(e.target.value)}
+                    className="w-full bg-black/40 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-400"
+                  >
+                    <option value="all">All locations</option>
+                    {locations.map((loc) => (
+                      <option key={loc.id} value={loc.id}>
+                        {loc.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="grid md:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-gray-400">User ID (contains)</label>
+                  <input
+                    type="text"
+                    value={filterUserId}
+                    onChange={(e) => setFilterUserId(e.target.value)}
+                    placeholder="Search by user ID"
+                    className="w-full bg-black/40 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-400 placeholder-gray-500"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-gray-400">Puller ID (contains)</label>
+                  <input
+                    type="text"
+                    value={filterPullerId}
+                    onChange={(e) => setFilterPullerId(e.target.value)}
+                    placeholder="Search by puller ID"
+                    className="w-full bg-black/40 border border-gray-700 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-green-400 placeholder-gray-500"
+                  />
+                </div>
               </div>
             </div>
 
@@ -482,28 +593,57 @@ export default function AdminPage() {
                           {new Date(ride.createdAt).toLocaleString()}
                         </td>
                         <td className="px-3 sm:px-6 py-3 sm:py-4">
-                          {ride.pointsStatus === 'under_review' && (
-                            <button
-                              onClick={() => {
-                                const points = prompt('Enter points to award (0-10):', '5');
-                                if (points) handleAdjustPoints(ride.id, parseFloat(points));
-                              }}
-                              className="px-2 sm:px-3 py-1 bg-green-500 hover:bg-green-600 rounded text-xs font-semibold transition-colors"
-                            >
-                              Adjust
-                            </button>
-                          )}
-                          {ride.pointsStatus === 'rewarded' && ride.pointsAwarded !== undefined && (
-                            <button
-                              onClick={() => {
-                                const points = prompt('Enter new points value:', ride.pointsAwarded?.toString() || '0');
-                                if (points) handleAdjustPoints(ride.id, parseFloat(points));
-                              }}
-                              className="px-2 sm:px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs font-semibold transition-colors"
-                            >
-                              Edit
-                            </button>
-                          )}
+                          <div className="flex flex-wrap gap-2">
+                            {ride.pointsStatus === 'under_review' && (
+                              <button
+                                onClick={() => {
+                                  const points = prompt('Enter points to award (0-10):', '5');
+                                  if (points) handleAdjustPoints(ride.id, parseFloat(points));
+                                }}
+                                className="px-2 sm:px-3 py-1 bg-green-500 hover:bg-green-600 rounded text-xs font-semibold transition-colors"
+                              >
+                                Adjust
+                              </button>
+                            )}
+                            {ride.pointsStatus === 'rewarded' && ride.pointsAwarded !== undefined && (
+                              <button
+                                onClick={() => {
+                                  const points = prompt('Enter new points value:', ride.pointsAwarded?.toString() || '0');
+                                  if (points) handleAdjustPoints(ride.id, parseFloat(points));
+                                }}
+                                className="px-2 sm:px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs font-semibold transition-colors"
+                              >
+                                Edit
+                              </button>
+                            )}
+                            {ride.pullerId && (
+                              <button
+                                onClick={async () => {
+                                  if (!confirm('Suspend this puller (set offline)?')) return;
+                                  try {
+                                    const res = await fetch(`/api/pullers/${ride.pullerId}`, {
+                                      method: 'PATCH',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ isOnline: false })
+                                    });
+                                    if (!res.ok) {
+                                      const data = await res.json();
+                                      alert(`Error suspending puller: ${data.error || 'Unknown error'}`);
+                                    } else {
+                                      alert('Puller suspended (set offline).');
+                                      fetchStats();
+                                    }
+                                  } catch (error) {
+                                    console.error('Error suspending puller:', error);
+                                    alert('Failed to suspend puller');
+                                  }
+                                }}
+                                className="px-2 sm:px-3 py-1 bg-red-600 hover:bg-red-700 rounded text-xs font-semibold transition-colors"
+                              >
+                                Suspend Puller
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
