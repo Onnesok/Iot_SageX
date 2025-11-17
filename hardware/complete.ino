@@ -47,7 +47,8 @@
 // ------------ Network + Backend configuration ------------
 const char *WIFI_SSID     = "Anime";
 const char *WIFI_PASSWORD = "12345678";
-const char *API_BASE_URL  = "https://iot-sage-x.vercel.app/api"; // Update to your Next.js deployment
+// Include trailing slash so ESP32 hits final URL directly (avoids HTTP 308 redirects)
+const char *API_BASE_URL  = "http://172.19.23.117:3000/api/"; // Update to your Next.js deployment
 
 // Users and locations must exist in the seeded backend database
 const char *REGISTERED_USER_ID   = "user_block_cuet";
@@ -710,7 +711,8 @@ void sendRideRequest() {
 
   ensureWiFi();
   HTTPClient http;
-  String url = String(API_BASE_URL) + "/rides";
+  // API_BASE_URL already includes /api/, so omit leading slash
+  String url = String(API_BASE_URL) + "rides";
   http.begin(url);
   http.addHeader("Content-Type", "application/json");
 
@@ -765,7 +767,8 @@ void pollRideStatus() {
   ensureWiFi();
 
   HTTPClient http;
-  String url = String(API_BASE_URL) + "/rides/" + activeRideId;
+  // API_BASE_URL already includes /api/, so omit leading slash
+  String url = String(API_BASE_URL) + "rides/" + activeRideId;
   http.begin(url);
 
   int code = http.GET();

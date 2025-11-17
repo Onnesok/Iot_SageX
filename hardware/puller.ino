@@ -24,9 +24,9 @@
  const char* WIFI_SSID     = "Anime";
  const char* WIFI_PASSWORD = "12345678";
  
- // Base URL of your backend (no trailing slash)
- // Example: "http://192.168.0.10:3000"
- const char* BACKEND_BASE_URL = "https://iot-sage-x.vercel.app/api";
+// Base URL of your backend (with trailing slash so we don't get HTTP 308 redirects)
+// Example: "http://192.168.0.10:3000/api/"
+const char* BACKEND_BASE_URL = "http://172.19.23.117:3000/api/";
  
  // Puller identifier (can be phone or puller id – must match backend logic)
  const char* PULLER_ID = "puller_123";  // change per rickshaw
@@ -114,8 +114,8 @@ Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
  
 void setPullerOnline(bool online) {
   HTTPClient http;
-  // BACKEND_BASE_URL already includes /api, so we omit it here
-  String url = String(BACKEND_BASE_URL) + "/pullers/" + PULLER_ID;
+  // BACKEND_BASE_URL already includes /api/ so we omit the leading slash
+  String url = String(BACKEND_BASE_URL) + "pullers/" + PULLER_ID;
   http.begin(url);
    http.addHeader("Content-Type", "application/json");
  
@@ -132,8 +132,8 @@ void setPullerOnline(bool online) {
  // Poll /api/rides?type=active and pick the first pending/available ride
  void pollRequests() {
   HTTPClient http;
- // BACKEND_BASE_URL already includes /api, so we omit it here
- String url = String(BACKEND_BASE_URL) + "/rides?type=active";
+  // BACKEND_BASE_URL already includes /api/ so we omit the leading slash
+ String url = String(BACKEND_BASE_URL) + "rides?type=active";
   http.begin(url);
  
    int httpCode = http.GET();
@@ -201,8 +201,8 @@ void setPullerOnline(bool online) {
    if (rideId.length() == 0) return false;
  
   HTTPClient http;
- // BACKEND_BASE_URL already includes /api, so we omit it here
- String url = String(BACKEND_BASE_URL) + "/rides/" + rideId;
+  // BACKEND_BASE_URL already includes /api/ so we omit the leading slash
+ String url = String(BACKEND_BASE_URL) + "rides/" + rideId;
   http.begin(url);
    http.addHeader("Content-Type", "application/json");
  
